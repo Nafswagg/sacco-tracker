@@ -1,101 +1,124 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const form = document.getElementById('payment-form');
-  const list = document.getElementById('payment-list');
-  const amount = document.getElementById('amount');
-  const mpesa = document.getElementById('mpesa');
+let users = JSON.parse(localStorage.getItem('users')) || [];
+let payments = JSON.parse(localStorage.getItem('payments')) || [];
+let currentUser = JSON.parse(localStorage.getItem('currentUser'));
 
-  const signupUsername = document.getElementById('signup-username');
-  const signupPassword = document.getElementById('signup-password');
-  const loginUsername = document.getElementById('login-username');
-  const loginPassword = document.getElementById('login-password');
+// Add default super admin if not present
+if (!users.find(u => u.username === 'naftal')) {
+  users.push({ username: 'naftal', password: 'superadmin', role: 'admin', question: 'Code name?', answer: 'shifter' });
+  localStorage.setItem('users', JSON.stringify(users));
+}
 
-  const payments = JSON.parse(localStorage.getItem('payments')) || [];
-  const users = JSON.parse(localStorage.getItem('users')) || [];
+// AUTH TOGGLE
+window.toggleAuth = function(mode) {
+  document.getElementById('signup-section').style.display = mode === 'signup' ? 'block' : 'none';
+  document.getElementById('login-section').style.display = mode === 'login' ? 'block' : 'none';
+  document.getElementById('reset-section').style.display = mode === 'reset' ? 'block' : 'none';
+}
 
-  const currentUser = localStorage.getItem('loggedInUser');
+// LOGIN
+window.login = function () {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value.trim();
+  const user = users.find(u => u.username === username && u.password === password);
 
-  const saveToLocal = () => {
-    localStorage.setItem('payments', JSON.stringify(payments));
-  };
-
-  const renderPayments = () => {
-    list.innerHTML = '';
-    let total = 0;
-
-    payments.forEach((p) => {
-      if (p.user === localStorage.getItem('loggedInUser')) {
-        total += Number(p.amount);
-      }
-    });
-
-    const totalLi = document.createElement('li');
-    totalLi.style.background = '#d1ffd1';
-    totalLi.style.fontWeight = 'bold';
-    totalLi.textContent = `TOTAL: ${total} Ksh`;
-    list.appendChild(totalLi);
-
-    payments.forEach((p) => {
-      if (p.user === localStorage.getItem('loggedInUser')) {
-        const li = document.createElement('li');
-        li.textContent = `${p.amount} Ksh - ${p.mpesa} - ${p.date}`;
-        list.appendChild(li);
-      }
-    });
-  };
-
-  if (currentUser) {
-    document.getElementById('auth-section').style.display = 'none';
-    document.getElementById('main-app').style.display = 'block';
-    renderPayments();
+  if (user) {
+    localStorage.setItem('currentUser', JSON.stringify(user));
+    location.reload();
+  } else {
+    alert("Login failed!");
   }
+}
 
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const now = new Date();
-    const date = now.toLocaleString();
-    payments.push({ amount: amount.value, mpesa: mpesa.value, date, user: localStorage.getItem('loggedInUser') });
-    saveToLocal();
-    renderPayments();
-    form.reset();
-  });
+// SIGNUP
+window.signup = function () {
+  const username = document.getElementById('signup-username').value.trim();
+  const password = document.getElementById('signup-password').value.trim();
+  const question = document.getElementById('signup-question').value.trim();
+  const answer = document.getElementById('signup-answer').value.trim();
 
-  window.signup = function () {
-    const username = signupUsername.value.trim();
-    const password = signupPassword.value.trim();
+  if (!username || !password || !question || !answer) return alert("Fill all fields.");
 
-    if (users.find(u => u.username === username)) {
-      alert('Username already exists!');
-      return;
-    }
+  if (users.find(u => u.username === username)) return alert("Username exists.");
 
-    users.push({ username, password });
+  users.push({ username, password, role: 'user', question, answer });
+  localStorage.setItem('users', JSON.stringify(users));
+  alert("Signup successful!");
+  toggleAuth('login');
+}
+
+// RESET PASSWORD
+window.startReset = function () {
+  const uname = document.getElementById('reset-username').value.trim();
+  const user = users.find(u => u.username === uname);
+  if (!user) return alert("User not found!");
+  document.getElementById('security-question').textContent = "Question: " + user.question;
+  document.getElementById('reset-step2').style.display = 'block';
+}
+
+window.finishReset = function () {
+  const uname = document.getElementById('reset-username').value.trim();
+  const ans = document.getElementById('reset-answer').value.trim();
+  const newPass = document.getElementById('new-password').value.trim();
+  const user = users.find(u => u.username === uname);
+  if (user && user.answer === ans) {
+    user.password = newPass;
     localStorage.setItem('users', JSON.stringify(users));
-    alert('Account created! Please login.');
+    alert("Password reset successful.");
     toggleAuth('login');
-  };
+  } else {
+    alert("Wrong answer!");
+  }
+}
 
-  window.login = function () {
-    const username = loginUsername.value.trim();
-    const password = loginPassword.value.trim();
+// LOGOUT
+window.logout = function () {
+  localStorage.removeItem('currentUser');
+  location.reload();
+}
 
-    const user = users.find(u => u.username === username && u.password === password);
+// SAVE PAYMENT
+window.savePayment = function () {
+  const amount = Number(document.getElementById('amount').value);
+  const mpesa = document.getElementById('mpesa').value.trim();
+  if (!amount || !mpesa) return alert("Fill both fields.");
+  const now = new Date().toLocaleString();
+  payments.push({ user: currentUser.username, amount, mpesa, time: now });
+  localStorage.setItem('payments', JSON.stringify(payments));
+  displayPayments();
+}
 
-    if (!user) {
-      alert('Invalid credentials!');
-      return;
-    }
+// DISPLAY PAYMENTS
+function displayPayments() {
+  document.getElementById('payments-list').innerHTML = "";
+  let total = 0;
+  const isAdmin = currentUser.role === 'admin';
+  const myPayments = isAdmin ? payments : payments.filter(p => p.user === currentUser.username);
+  myPayments.forEach(p => {
+    total += p.amount;
+    document.getElementById('payments-list').innerHTML += `<li>${p.user} - ${p.amount} (ID: ${p.mpesa}) on ${p.time}</li>`;
+  });
+  document.getElementById('total').textContent = `Ksh ${total}`;
+}
 
-    localStorage.setItem('loggedInUser', username);
-    location.reload();
-  };
+// PROMOTE USER
+window.promoteUser = function () {
+  const username = document.getElementById('admin-promote-user').value.trim();
+  const user = users.find(u => u.username === username);
+  if (!user) return alert("User not found!");
+  user.role = 'admin';
+  localStorage.setItem('users', JSON.stringify(users));
+  alert("User promoted.");
+}
 
-  window.logout = function () {
-    localStorage.removeItem('loggedInUser');
-    location.reload();
-  };
-
-  window.toggleAuth = function (mode) {
-    document.getElementById('signup-section').style.display = mode === 'signup' ? 'block' : 'none';
-    document.getElementById('login-section').style.display = mode === 'login' ? 'block' : 'none';
-  };
-});
+// INITIAL LOAD
+if (currentUser) {
+  document.getElementById('login-section').style.display = 'none';
+  document.getElementById('signup-section').style.display = 'none';
+  document.getElementById('reset-section').style.display = 'none';
+  document.getElementById('main-app').style.display = 'block';
+  document.getElementById('logged-user').textContent = currentUser.username;
+  if (currentUser.role === 'admin') {
+    document.getElementById('admin-controls').style.display = 'block';
+  }
+  displayPayments();
+}
