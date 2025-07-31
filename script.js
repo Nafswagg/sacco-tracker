@@ -197,6 +197,11 @@ window.addEventListener('DOMContentLoaded', () => {
     if (currentUser.role === 'admin' || currentUser.role === 'superadmin') {
       document.getElementById('admin-controls').style.display = 'block';
     }
+    if (currentUser.phone) {
+  const phoneSpan = document.getElementById('user-phone');
+  if (phoneSpan) phoneSpan.textContent = currentUser.phone;
+    }
+    
     displayPayments();
   } else {
     toggleAuth('login');
