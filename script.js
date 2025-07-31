@@ -1,9 +1,9 @@
-// Load stored data
+// Load or initialize storage
 let users = JSON.parse(localStorage.getItem('users')) || [];
 let payments = JSON.parse(localStorage.getItem('payments')) || [];
 let currentUser = JSON.parse(localStorage.getItem('currentUser'));
 
-// Ensure superadmin exists (you)
+// Ensure superadmin exists (username: naftal, password: superadmin)
 if (!users.find(u => u.username === 'naftal')) {
   users.push({
     username: 'naftal',
@@ -15,25 +15,24 @@ if (!users.find(u => u.username === 'naftal')) {
   localStorage.setItem('users', JSON.stringify(users));
 }
 
-// Helper to persist
+// Persist helper
 function persist() {
   localStorage.setItem('users', JSON.stringify(users));
   localStorage.setItem('payments', JSON.stringify(payments));
 }
 
-// AUTH TOGGLE
+// Toggle auth views
 window.toggleAuth = function(mode) {
   document.getElementById('signup-section').style.display = mode === 'signup' ? 'block' : 'none';
   document.getElementById('login-section').style.display = mode === 'login' ? 'block' : 'none';
   document.getElementById('reset-section').style.display = mode === 'reset' ? 'block' : 'none';
 }
 
-// LOGIN
+// Login
 window.login = function () {
   const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value.trim();
   const user = users.find(u => u.username === username && u.password === password);
-
   if (!user) {
     alert("Invalid credentials!");
     return;
@@ -42,7 +41,7 @@ window.login = function () {
   location.reload();
 }
 
-// SIGNUP
+// Signup
 window.signup = function () {
   const username = document.getElementById('signup-username').value.trim();
   const password = document.getElementById('signup-password').value.trim();
@@ -50,13 +49,13 @@ window.signup = function () {
   const answer = document.getElementById('signup-answer').value.trim();
 
   if (!username || !password || !question || !answer) {
-    return alert("Please fill all signup fields.");
+    alert("Please fill all signup fields.");
+    return;
   }
-
   if (users.find(u => u.username === username)) {
-    return alert("Username already exists.");
+    alert("Username already exists.");
+    return;
   }
-
   users.push({
     username,
     password,
@@ -69,11 +68,14 @@ window.signup = function () {
   toggleAuth('login');
 }
 
-// RESET PASSWORD
+// Reset password flow
 window.startReset = function () {
   const uname = document.getElementById('reset-username').value.trim();
   const user = users.find(u => u.username === uname);
-  if (!user) return alert("User not found.");
+  if (!user) {
+    alert("User not found.");
+    return;
+  }
   document.getElementById('security-question').textContent = "Question: " + user.question;
   document.getElementById('reset-step2').style.display = 'block';
 }
@@ -93,26 +95,31 @@ window.finishReset = function () {
   }
 }
 
-// LOGOUT
+// Logout
 window.logout = function () {
   localStorage.removeItem('currentUser');
   location.reload();
 }
 
-// SAVE PAYMENT
+// Save payment
 window.savePayment = function () {
-  if (!currentUser) return alert("Not logged in.");
-  const amountInput = document.getElementById('amount').value.trim();
-  const mpesaId = document.getElementById('mpesa').value.trim();
-  const amount = parseFloat(amountInput);
-  if (isNaN(amount) || amount <= 0 || !mpesaId) {
-    return alert("Enter valid amount and M-Pesa ID.");
+  currentUser = JSON.parse(localStorage.getItem('currentUser'));
+  if (!currentUser) {
+    alert("Not logged in.");
+    return;
+  }
+  const amountRaw = document.getElementById('amount').value.trim();
+  const mpesa = document.getElementById('mpesa').value.trim();
+  const amount = parseFloat(amountRaw);
+  if (isNaN(amount) || amount <= 0 || !mpesa) {
+    alert("Enter valid amount and M-Pesa ID.");
+    return;
   }
   const now = new Date().toLocaleString();
   payments.push({
     user: currentUser.username,
     amount,
-    mpesa: mpesaId,
+    mpesa,
     time: now
   });
   persist();
@@ -121,11 +128,12 @@ window.savePayment = function () {
   document.getElementById('mpesa').value = '';
 }
 
-// DISPLAY PAYMENTS & TOTAL
+// Display payments and total
 function displayPayments() {
+  currentUser = JSON.parse(localStorage.getItem('currentUser'));
   if (!currentUser) return;
-  const listEl = document.getElementById('payments-list');
-  listEl.innerHTML = '';
+  const list = document.getElementById('payments-list');
+  list.innerHTML = '';
   let total = 0;
 
   const isAdmin = currentUser.role === 'admin' || currentUser.role === 'superadmin';
@@ -137,32 +145,39 @@ function displayPayments() {
     total += Number(p.amount) || 0;
     const li = document.createElement('li');
     li.textContent = `${p.user} - Ksh ${p.amount.toLocaleString()} (MPesa: ${p.mpesa}) on ${p.time}`;
-    listEl.appendChild(li);
+    list.appendChild(li);
   });
 
   document.getElementById('total').textContent = `Ksh ${total.toLocaleString()}`;
 }
 
-// PROMOTE USER (only superadmin sees this)
+// Promote user (only superadmin)
 window.promoteUser = function () {
-  if (!currentUser || currentUser.role !== 'superadmin') return alert("Not authorized.");
+  currentUser = JSON.parse(localStorage.getItem('currentUser'));
+  if (!currentUser || currentUser.role !== 'superadmin') {
+    alert("Not authorized.");
+    return;
+  }
   const username = document.getElementById('admin-promote-user').value.trim();
   const user = users.find(u => u.username === username);
-  if (!user) return alert("User not found.");
+  if (!user) {
+    alert("User not found.");
+    return;
+  }
   user.role = 'admin';
   persist();
-  alert(`${username} promoted to admin.`);
+  alert(`${username} is now an admin.`);
 }
 
-// INITIALIZE UI
+// On load: set up UI
 window.addEventListener('DOMContentLoaded', () => {
+  currentUser = JSON.parse(localStorage.getItem('currentUser'));
   if (currentUser) {
     document.getElementById('login-section').style.display = 'none';
     document.getElementById('signup-section').style.display = 'none';
     document.getElementById('reset-section').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
     document.getElementById('logged-user').textContent = currentUser.username;
-
     if (currentUser.role === 'admin' || currentUser.role === 'superadmin') {
       document.getElementById('admin-controls').style.display = 'block';
     }
