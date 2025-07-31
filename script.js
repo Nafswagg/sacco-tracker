@@ -45,28 +45,44 @@ window.login = function () {
 window.signup = function () {
   const username = document.getElementById('signup-username').value.trim();
   const password = document.getElementById('signup-password').value.trim();
+  const phone = document.getElementById('signup-phone').value.trim();
   const question = document.getElementById('signup-question').value.trim();
   const answer = document.getElementById('signup-answer').value.trim();
 
-  if (!username || !password || !question || !answer) {
+  if (!username || !password || !phone || !question || !answer) {
     alert("Please fill all signup fields.");
     return;
   }
+
+  // Basic phone format check (you can tighten this)
+  if (!/^\\+?\\d{9,15}$/.test(phone)) {
+    alert("Enter a valid phone number (digits, optional leading +).");
+    return;
+  }
+
+  // Prevent duplicate username or phone
   if (users.find(u => u.username === username)) {
     alert("Username already exists.");
     return;
   }
+  if (users.find(u => u.phone === phone)) {
+    alert("Phone number already registered.");
+    return;
+  }
+
   users.push({
     username,
     password,
     role: 'user',
     question,
-    answer
+    answer,
+    phone
   });
   persist();
   alert("Signup successful. Please login.");
   toggleAuth('login');
 }
+
 
 // Reset password flow
 window.startReset = function () {
